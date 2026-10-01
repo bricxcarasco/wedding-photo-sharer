@@ -1,7 +1,9 @@
 import { Suspense, lazy, useMemo } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { TabBar } from './components/TabBar';
+import { Confetti } from './components/Confetti';
 import { ErrorState } from './pages/errors/ErrorState';
+import { useRipple } from './hooks/useRipple';
 import { detectCapabilities } from './lib/capabilities';
 import Landing from './pages/Landing';
 
@@ -16,6 +18,7 @@ export default function App() {
   const { pathname } = useLocation();
   const hideTabs = pathname === '/'; // landing has its own big actions
   const caps = useMemo(() => detectCapabilities(), []);
+  useRipple();
 
   if (!caps.usable) {
     return (
@@ -31,6 +34,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <Confetti />
       <Suspense fallback={<div className="page" aria-busy="true" />}>
         <Routes>
           <Route path="/" element={<Landing />} />

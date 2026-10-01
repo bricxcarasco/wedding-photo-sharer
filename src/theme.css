@@ -28,9 +28,16 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  --font-display: 'Cormorant Garamond', 'Hoefler Text', Georgia, serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui,
-    sans-serif;
+  --font-script: 'Parisienne', 'Snell Roundhand', cursive;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', sans-serif;
+  /* Display headings now use the body (Inter) stack too — only the couple's
+     names keep the script font. */
+  --font-display: var(--font-body);
+
+  /* Theme backgrounds */
+  --page-bg: #bbb999;
+  --tabbar-bg: #ede0cd;
 }
 
 * {
@@ -48,9 +55,7 @@ body {
   margin: 0;
   font-family: var(--font-body);
   color: var(--ink);
-  background:
-    radial-gradient(1200px 600px at 50% -10%, var(--sage-wash), transparent 60%),
-    var(--cream);
+  background: var(--page-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
@@ -81,6 +86,8 @@ h3 {
   margin: 0 auto;
   padding: 16px 18px 24px;
   animation: fade-up 0.35s var(--ease) both;
+  position: relative;
+  z-index: 2; /* keep page content above the decorative confetti layer */
 }
 
 @keyframes fade-up {
@@ -107,9 +114,23 @@ h3 {
   font-style: italic;
 }
 .names {
-  font-size: clamp(2.1rem, 9vw, 3rem);
-  line-height: 1.05;
+  font-family: var(--font-script);
+  font-weight: 400;
+  font-size: clamp(2.8rem, 12vw, 4rem);
+  line-height: 1.1;
   color: var(--ink);
+}
+.names .amp {
+  font-style: normal; /* Parisienne is already cursive; don't double-slant */
+}
+.hashtag {
+  margin-top: 10px;
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sage-deep);
+  word-break: break-word;
 }
 .date {
   margin-top: 6px;
@@ -153,11 +174,24 @@ h3 {
   color: #fff;
   box-shadow: var(--shadow-soft);
   cursor: pointer;
-  transition: transform 0.12s var(--ease), background 0.2s, box-shadow 0.2s;
+  transition: transform 0.14s var(--ease), background 0.2s, box-shadow 0.2s,
+    filter 0.2s;
   touch-action: manipulation;
+  position: relative;
+  overflow: hidden; /* contain the tap ripple */
 }
-.btn:active {
-  transform: scale(0.98);
+.btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow: var(--shadow);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.95);
+  animation: press-pop 0.32s var(--ease);
+}
+@keyframes press-pop {
+  0% { transform: scale(0.95); }
+  55% { transform: scale(1.03); }
+  100% { transform: scale(1); }
 }
 .btn:disabled {
   opacity: 0.5;
@@ -205,9 +239,8 @@ h3 {
   bottom: 0;
   display: flex;
   justify-content: space-around;
-  background: rgba(255, 253, 247, 0.92);
-  backdrop-filter: saturate(1.3) blur(12px);
-  border-top: 1px solid rgba(140, 155, 125, 0.22);
+  background: var(--tabbar-bg);
+  border-top: 1px solid rgba(140, 120, 90, 0.25);
   padding: 8px 6px calc(8px + var(--safe-bottom));
   z-index: 50;
 }
@@ -431,8 +464,11 @@ h3 {
   background: #fff;
   margin: 0 auto;
   flex: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.14s var(--ease);
 }
-.shutter:active { transform: scale(0.94); }
+.shutter:active { transform: scale(0.9); }
 
 .visually-hidden {
   position: absolute;
@@ -440,4 +476,81 @@ h3 {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tap ripple (spawned by useRipple) + press feedback for tiles
+   ───────────────────────────────────────────────────────────────────────── */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transform: scale(0);
+  animation: ripple-out 0.6s var(--ease);
+  pointer-events: none;
+  z-index: 2;
+}
+/* On light surfaces (tiles, secondary buttons) use a tinted ripple. */
+.tile .ripple,
+.btn.secondary .ripple,
+.shutter .ripple {
+  background: rgba(140, 155, 125, 0.35);
+}
+@keyframes ripple-out {
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.tile {
+  position: relative;
+  transition: transform 0.14s var(--ease), box-shadow 0.2s;
+}
+.tile:active {
+  transform: scale(0.96);
+}
+.tile img {
+  transition: transform 0.3s var(--ease);
+}
+.tile:active img {
+  transform: scale(1.04);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Falling confetti (hearts, rings, diamonds, leaves) — decorative overlay
+   ───────────────────────────────────────────────────────────────────────── */
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1; /* above the page background, below content/tabbar/dialogs */
+}
+.confetti__piece {
+  position: absolute;
+  top: -8vh;
+  will-change: transform;
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  filter: drop-shadow(0 1px 1px rgba(80, 90, 70, 0.18));
+  user-select: none;
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(var(--drift, 0px), 112vh, 0) rotate(var(--spin, 180deg));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .ripple {
+    display: none;
+  }
 }
