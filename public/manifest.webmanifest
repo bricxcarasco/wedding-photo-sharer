@@ -1,0 +1,21 @@
+{
+  "name": "Bricx & Hannah Wedding",
+  "short_name": "B & H",
+  "description": "Share your photos from Bricx & Hannah's wedding — February 6, 2027.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4ec",
+  "theme_color": "#8a9a7b",
+  "categories": ["photo", "lifestyle", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Take a Photo", "url": "/upload?camera=1" },
+    { "name": "Wedding Gallery", "url": "/gallery" }
+  ]
+}
