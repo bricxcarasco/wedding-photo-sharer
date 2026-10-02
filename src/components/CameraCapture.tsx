@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CameraFlipIcon } from './CameraFlipIcon';
 
 interface Props {
   onCapture: (file: File) => void;
   onClose: () => void;
 }
 
+type Facing = 'environment' | 'user';
+
 /**
  * Live camera via getUserMedia. If it isn't available/permitted, the parent
- * should fall back to a native <input capture> picker. We prefer the rear
- * camera (facingMode: environment) and let the guest take MANY photos without
- * leaving — each capture fires onCapture and the viewfinder stays open.
+ * should fall back to a native <input capture> picker. We start on the rear
+ * camera (facingMode: environment) and let the guest flip between the back and
+ * front cameras, and take MANY photos without leaving — each capture fires
+ * onCapture and the viewfinder stays open.
  */
 export function CameraCapture({ onCapture, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -17,13 +21,22 @@ export function CameraCapture({ onCapture, onClose }: Props) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(0);
+  const [facing, setFacing] = useState<Facing>('environment');
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setReady(false);
     (async () => {
       try {
+        // Stop any existing stream before switching cameras.
+        stopStream();
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 } },
+          video: { facingMode: { ideal: facing }, width: { ideal: 2560 } },
           audio: false,
         });
         if (cancelled) {
@@ -46,8 +59,12 @@ export function CameraCapture({ onCapture, onClose }: Props) {
     })();
     return () => {
       cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopStream();
     };
+  }, [facing, stopStream]);
+
+  const flipCamera = useCallback(() => {
+    setFacing((f) => (f === 'environment' ? 'user' : 'environment'));
   }, []);
 
   const snap = useCallback(() => {
@@ -58,6 +75,11 @@ export function CameraCapture({ onCapture, onClose }: Props) {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    // Mirror front-camera captures so the saved photo matches the preview.
+    if (facing === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0);
     canvas.toBlob(
       (blob) => {
@@ -69,7 +91,7 @@ export function CameraCapture({ onCapture, onClose }: Props) {
       'image/jpeg',
       0.95
     );
-  }, [onCapture]);
+  }, [onCapture, facing]);
 
   if (error) {
     return (
@@ -84,7 +106,13 @@ export function CameraCapture({ onCapture, onClose }: Props) {
 
   return (
     <div>
-      <video ref={videoRef} className="camera-video" playsInline muted aria-label="Camera viewfinder" />
+      <video
+        ref={videoRef}
+        className={`camera-video${facing === 'user' ? ' mirror' : ''}`}
+        playsInline
+        muted
+        aria-label="Camera viewfinder"
+      />
       <div className="cam-controls">
         <button className="btn ghost" style={{ width: 'auto' }} onClick={onClose}>
           Done
@@ -95,10 +123,20 @@ export function CameraCapture({ onCapture, onClose }: Props) {
           disabled={!ready}
           onClick={snap}
         />
-        <span style={{ width: 72, textAlign: 'center', color: 'var(--ink-soft)', fontSize: '0.8rem' }}>
-          {count > 0 ? `${count} taken` : ''}
-        </span>
+        <button
+          className="cam-flip"
+          aria-label={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+          title={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+          onClick={flipCamera}
+        >
+          <CameraFlipIcon />
+        </button>
       </div>
+      {count > 0 && (
+        <p style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: '0.8rem', marginTop: 8 }}>
+          {count} taken
+        </p>
+      )}
     </div>
   );
 }
