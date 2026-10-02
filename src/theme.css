@@ -388,24 +388,45 @@ h3 {
   justify-content: center;
   z-index: 200;
   overflow: hidden;
+  /* 10px gap on every side, plus safe-area insets so notched phones + the
+     close button don't clip the image. */
+  padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
+  box-sizing: border-box;
+  animation: lightbox-fade 0.18s var(--ease) both;
 }
 .lightbox-image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: cover;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+@keyframes lightbox-fade {
+  from { opacity: 0; }
 }
 .lightbox .close {
   position: absolute;
-  top: calc(12px + var(--safe-top));
-  right: 16px;
-  font-size: 1.6rem;
+  top: calc(10px + var(--safe-top));
+  right: 10px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  line-height: 1;
   color: #fff;
-  background: none;
+  background: rgba(28, 32, 24, 0.55);
   border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lightbox .close:active {
+  transform: scale(0.92);
 }
 
 /* Empty / stat */

@@ -24,14 +24,14 @@ export function Lightbox({ photo, onClose }: Props) {
       <button className="close" aria-label="Close" onClick={onClose}>
         ✕
       </button>
-      {/* Full view still uses the thumbnail proxy (web-sized), never the raw
-          original, to keep bandwidth sane. The image fills the whole screen
-          (background-size: cover), perfectly centered both ways. */}
-      <div
+      {/* Full-screen modal: dark backdrop + the whole image shown (object-fit:
+          contain), centered, inset by a small gap. Tap the backdrop or ✕ to
+          close and return to the photo list. Still uses the thumbnail proxy
+          (web-sized), never the raw original, to keep bandwidth sane. */}
+      <img
         className="lightbox-image"
-        role="img"
-        aria-label={photo.name}
-        style={{ backgroundImage: `url(${photo.thumbnailUrl})` }}
+        src={photo.thumbnailUrl}
+        alt={photo.name}
         onClick={(e) => e.stopPropagation()}
       />
     </div>
