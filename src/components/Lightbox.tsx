@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { PhotoRecord } from '../lib/types';
 
 interface Props {
@@ -19,7 +20,13 @@ export function Lightbox({ photo, onClose }: Props) {
     };
   }, [onClose]);
 
-  return (
+  // Render into document.body via a portal. CRITICAL: the page container
+  // (`.page`) has an animated `transform` (fade-up), which establishes a
+  // containing block — so a `position: fixed` child would be positioned
+  // relative to `.page` (a scrollable, max-width box) instead of the viewport,
+  // trapping the preview inside the grid. The portal lifts the overlay out to
+  // <body> so `position: fixed` resolves against the real viewport.
+  return createPortal(
     <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
       <button className="close" aria-label="Close" onClick={onClose}>
         ✕
@@ -34,6 +41,7 @@ export function Lightbox({ photo, onClose }: Props) {
         alt={photo.name}
         onClick={(e) => e.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body
   );
 }

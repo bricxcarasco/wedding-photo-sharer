@@ -153,12 +153,24 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   Close via backdrop click, the circular `.close` ✕ button (semi-transparent bg, raised with
   z-index), or Esc; `document.body` overflow is locked while open. Still uses the thumbnail proxy,
   never the raw original.
-  - **CRITICAL mobile fix:** `.lightbox` is sized `width:100vw;height:100vh` **then** overridden with
-    `width:100dvw;height:100dvh` (not `inset:0`). On mobile, `inset:0`/`100%` resolve against the
-    *layout* viewport, so as the address bar shows/hides the centered image drifted up/down or hid
-    behind the tab bar. `dvh/dvw` track the *visible* viewport; the `vh/vw` lines are the fallback.
-    Keep this — do not revert to `inset:0`/`100%`. (Tab bar z-index 50 < lightbox 200, so stacking
-    was never the issue; sizing was.)
+  - **CRITICAL fix #1 — React portal (THE real bug):** `Lightbox` MUST
+    `createPortal(<div className="lightbox">…</div>, document.body)`. It is rendered from inside
+    `<main className="page">`, and **`.page` has `animation: fade-up` whose keyframe uses
+    `transform: translateY(...)`**. An element with an animated/filled `transform` becomes the
+    *containing block* for its `position:fixed` descendants — so without the portal the overlay was
+    anchored to `.page` (a scrollable, `max-width:640px`, padded box), NOT the viewport. Symptom: the
+    preview appeared INLINE inside the grid, pinned near the top, with the gallery still scrolling
+    behind it (looked "stuck", lower photos couldn't be previewed). The portal lifts the overlay out
+    to `<body>`, a sibling of `.app-shell` (which has no transform), so `position:fixed` resolves
+    against the true viewport. **Do NOT remove the portal.** (This is why the earlier pure-CSS
+    `dvh` attempts "didn't fix it" — the overlay was trapped regardless of its own sizing.)
+  - **CRITICAL fix #2 — mobile sizing:** `.lightbox` is sized `width:100vw;height:100vh` **then**
+    overridden with `width:100dvw;height:100dvh` (not `inset:0`). On mobile, `inset:0`/`100%` resolve
+    against the *layout* viewport, so as the address bar shows/hides the centered image drifted
+    up/down or hid behind the tab bar. `dvh/dvw` track the *visible* viewport; the `vh/vw` lines are
+    the fallback. Keep this. (Tab bar z-index 50 < lightbox 200, so stacking was never the issue.)
+  - **General rule:** any future full-screen overlay/modal in this app must portal to `document.body`
+    for the same reason (`.page`'s animated transform traps `position:fixed`).
 - **Bolder names (`theme.css`):** Parisienne ships only a 400 weight on Google Fonts, so
   `font-weight` alone can't thicken it. `.names` now uses `font-weight:700` **plus**
   `-webkit-text-stroke: 0.6px var(--ink)`; the `&` keeps a gold stroke (`.names .amp`
@@ -192,8 +204,15 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
 - **Lightbox image drifted vertically / hid behind tab bar on mobile:** caused by sizing the
   overlay with `inset:0` + image `max-height:100%`, which resolve against the layout viewport (taller
   than the visible area as the mobile address bar shows/hides). FIX: size `.lightbox` with
-  `100dvh/100dvw` (fallback `100vh/100vw`) + `margin:auto` on the image. NOT yet committed as of this
-  entry (pending go-signal).
+  `100dvh/100dvw` (fallback `100vh/100vw`) + `margin:auto` on the image. Committed in `1b8c51e`.
+- **Lightbox appeared INLINE in the grid / "stuck" / couldn't preview lower photos / page still
+  scrolled (THE real bug behind the above):** `.page` has `animation: fade-up` using
+  `transform: translateY`, which makes `.page` the containing block for its `position:fixed`
+  children. The `Lightbox` rendered inside `.page`, so its "fixed" overlay anchored to `.page`
+  (a scrollable, max-width-640px, padded box) instead of the viewport. The `dvh` sizing fix alone
+  could not help while the overlay was trapped. FIX: render `Lightbox` via
+  `createPortal(…, document.body)` so it sits outside any transformed ancestor and `position:fixed`
+  resolves against the real viewport. NOT yet committed as of this entry (pending go-signal).
 
 ---
 
@@ -279,5 +298,17 @@ Keep appending brief entries so intent is retained across sessions.
     (no commit/push). Explained it activates next session. (not yet committed)
 29. **(auto hook) Update the memory bank** — Caught the file up on entries 24–29, rewrote the
     lightbox UI section to the padded-modal + `dvh` reality, logged the mobile-centering fix under
-    known-issues, and recorded the auto-update hook. ← this entry. (NOT committed — awaiting
-    go-signal per HARD RULE 1.)
+    known-issues, and recorded the auto-update hook.
+30. **"Commit and push all the updates"** — Go-signal given. Committed `1b8c51e` ("Fix mobile
+    lightbox vertical centering; add auto memory-bank hook", 3 files: `theme.css`,
+    `.kiro/hooks/update-memory-bank.json`, `memory-bank.md`), pushed `b997341..1b8c51e` to
+    `origin/main`. Working tree clean.
+31. **(auto hook) Update the memory bank** — Logged entry 30 (commit `1b8c51e`) and marked the
+    mobile-centering fix committed.
+32. **"Preview still broken — lower images can't preview, seems stuck, can't scroll, fix it
+    properly"** — Found the REAL root cause: `.page`'s `fade-up` animation uses `transform`, making
+    `.page` the containing block for `position:fixed`, so the in-`.page` `Lightbox` overlay was
+    trapped inside the scrollable grid box (not the viewport). FIX: render `Lightbox` through
+    `createPortal(…, document.body)`. Verified typecheck + build green. Updated the lightbox UI
+    section + known-issues with the portal/containing-block gotcha and a general "modals must portal
+    to body" rule. (NOT committed — awaiting go-signal.) ← this entry.
