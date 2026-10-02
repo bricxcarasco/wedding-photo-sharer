@@ -46,8 +46,10 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   **v24.3.0** via nvm. Always run build/test/dev with:
   `source ~/.nvm/nvm.sh && nvm use 24` (inside `wsl bash -lic`). Non-interactive shells don't
   load nvm, so `node` isn't on PATH without this.
-- **Vercel supported function runtimes:** Node 18 / 20 / 22 only (NOT 24). `package.json`
-  `engines.node` is pinned to `"22.x"`. Do NOT set `24.x` for Vercel.
+- **Vercel supported function runtimes (updated Oct 2026):** Node **24.x (default) / 22.x / 20.x**.
+  Node **24 is now allowed on Vercel** and is its default. Node 20 was **deprecated Oct 1, 2026**.
+  `package.json` `engines.node` is now `"24.x"` (bumped from `"22.x"`), and `.nvmrc` pins `24` for
+  local dev so `nvm use` (no arg) picks it up. Source: Vercel docs "Supported Node.js versions".
 - **Terminal gotcha:** the PowerShell→WSL layer echoes/mangles long commands and nested quotes.
   Workaround that works: write output to a file in the WORKSPACE (not `/tmp` — the agent file
   tools can't read `/tmp`) and read it with the file tool, OR run a `.sh` scratch script.
@@ -127,6 +129,26 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   glyphs 💗💍💎🌿🤍🍃✨ (hearts/rings/diamonds/leaves) with randomized pos/speed/drift/spin/opacity.
   Glyph size is **0.55–1.15rem** (shrunk from 0.9–2.0 at user request).
 - **Accessibility:** both confetti and ripples are disabled under `prefers-reduced-motion: reduce`.
+- **Camera front/back switch (`CameraCapture.tsx` + `CameraFlipIcon.tsx` + `theme.css`):**
+  `facing` state toggles `environment` ↔ `user`; the effect is keyed on `facing`, stops the old
+  stream and reopens `getUserMedia({ video: { facingMode: { ideal: facing } } })`. The front-camera
+  preview is mirrored (`.camera-video.mirror` → `scaleX(-1)`) and front captures are flipped back on
+  the canvas (`ctx.translate/scale`) so saved photos aren't reversed. The "N taken" counter moved
+  below the viewfinder. Flip button is `.cam-flip` (sage-wash bg, sage-light border, sage-deep icon,
+  hover→sage-light, active→sage fill + scale 0.92). The icon is a **custom inline SVG**
+  (`CameraFlipIcon`): camera body + sage-light lens + two rotation arcs top/bottom, drawn with
+  `currentColor`; geometry was tuned so the arrows don't overlap the body (body compact in the
+  center band, arcs pushed to the edges).
+- **Gallery lightbox fills the screen (`Lightbox.tsx` + `theme.css`):** replaced the constrained
+  `<img>` (capped at 86vh, couldn't reposition) with a full-screen `div.lightbox-image` using
+  `background-size: cover; background-position: center center` (`position:absolute; inset:0`).
+  `.lightbox` lost its padding and gained `overflow:hidden` so it's edge-to-edge. Cover **crops**
+  to fill — if whole-image-no-crop is ever wanted, switch to `contain`. Still uses the thumbnail
+  proxy, never the raw original.
+- **Bolder names (`theme.css`):** Parisienne ships only a 400 weight on Google Fonts, so
+  `font-weight` alone can't thicken it. `.names` now uses `font-weight:700` **plus**
+  `-webkit-text-stroke: 0.6px var(--ink)`; the `&` keeps a gold stroke (`.names .amp`
+  `-webkit-text-stroke-color: var(--gold)`).
 
 ## Code map (key files)
 
@@ -148,8 +170,11 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
 
 - **Vercel build error** `Function Runtimes must have a valid version`: caused by
   `vercel.json functions.runtime: "nodejs20.x"` (invalid — that field wants a versioned package
-  id). FIX: removed `runtime` (kept `maxDuration: 60`); pinned Node via `engines.node: "22.x"`.
-  Committed `3bfbe5d` and pushed (with user's go-signal at that time).
+  id). FIX: removed `runtime` (kept `maxDuration: 60`); pinned Node via `engines.node` (then `22.x`,
+  **now `24.x`**). Committed `3bfbe5d` and pushed (with user's go-signal at that time).
+- **Node version bump to 24:** `engines.node` `22.x` → `24.x` and added `.nvmrc` (`24`). Vercel now
+  supports Node 24 (its default), so the next deploy from `main` builds on 24. Verified green
+  locally (typecheck + 28 tests + build). Committed in `8cbab65`.
 
 ---
 
@@ -197,4 +222,24 @@ Keep appending brief entries so intent is retained across sessions.
     useRipple + button press-pop + Confetti component. (local only)
 15. **"Make confetti smaller"** — Shrunk glyph size to 0.55–1.15rem. (local only)
 16. **"Update memory bank + commit and push all updates"** — Updated this file; committed and
-    pushed all pending UI changes (go-signal given). ← this entry.
+    pushed all pending UI changes (go-signal given).
+17. **"Run the project locally"** — Started the Vite dev server on :5173 via
+    `wsl bash -lic "... nvm use 24 && npm run dev"`. Reminded: frontend only, uploads need the
+    deployed site.
+18. **"Why not upgrade to the latest Node just for this project?"** — Explained local already uses
+    nvm Node 24; the only cap was Vercel. Web-checked Vercel docs: Node 24 is now supported/default,
+    Node 20 deprecated Oct 1 2026. Bumped `engines.node` → `24.x`, added `.nvmrc` (`24`). Verified
+    typecheck + 28 tests + build green on Node 24. (local only at the time)
+19. **"Add front/back camera switch; fix gallery image centering (use background-size: cover);
+    make the names bolder"** — Implemented all three in `CameraCapture.tsx`, `Lightbox.tsx`,
+    `theme.css` (see UI section). Verified green. (local only at the time)
+20. **"Create a custom sage-green switch-camera icon"** — Added `CameraFlipIcon.tsx` (inline SVG),
+    swapped the 🔄 emoji, restyled `.cam-flip` into the sage palette. (local only at the time)
+21. **"Add spacing so the arrows don't overlap the camera icon"** — Reworked the SVG geometry:
+    compact centered camera body, arcs pushed to the edges. Previewed as an artifact. (local only)
+22. **"Commit and push all our updates"** — Go-signal given. Staged the 6 files, committed
+    `8cbab65` ("Add camera front/back switch, full-screen lightbox, bolder names, Node 24"), pushed
+    to `origin/main` (bricxcarasco via `github-other`). Verified local == remote.
+23. **"Update the memory bank"** — Updated this file: corrected Vercel/Node facts, documented the
+    three UI features + custom icon, refreshed known-issues, added entries 17–23. ← this entry.
+    (NOT yet committed — awaiting go-signal per HARD RULE 1.)
