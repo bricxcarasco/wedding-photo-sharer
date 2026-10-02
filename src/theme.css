@@ -381,13 +381,23 @@ h3 {
 /* Lightbox */
 .lightbox {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   background: rgba(28, 32, 24, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
   overflow: hidden;
+  /* Size to the ACTUAL visible viewport. On mobile, `inset:0` + `100%` resolve
+     against the layout viewport, which differs from the visible area as the
+     address bar shows/hides — that made the image drift up/down or hide behind
+     the tab bar. 100dvh/100dvw track the dynamic (visible) viewport; the
+     100vh/100vw lines are the fallback for browsers without dvh support. */
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
   /* 10px gap on every side, plus safe-area insets so notched phones + the
      close button don't clip the image. */
   padding: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));
@@ -400,6 +410,7 @@ h3 {
   max-height: 100%;
   width: auto;
   height: auto;
+  margin: auto; /* belt-and-suspenders centering inside the flex box */
   object-fit: contain;
   border-radius: 10px;
   box-shadow: var(--shadow);

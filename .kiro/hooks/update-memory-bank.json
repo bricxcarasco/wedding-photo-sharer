@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Auto-update memory bank after each turn",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Before finishing, review what happened in the turn that just completed and update the project memory bank at .kiro/steering/memory-bank.md so it stays an accurate persistent record.\n\nDo this every turn, but only when there is something worth recording. Specifically:\n- If code, config, or project state changed, update the relevant sections (e.g. \"UI / styling customizations\", \"Known issues fixed\", \"Environment / tooling facts\", \"Code map\") to reflect the new reality, correcting anything now outdated.\n- Always append a brief new entry to the \"Session history (prompt-by-prompt log)\" summarizing the user's request and what was done, mentioning commit hashes when relevant.\n- If the turn was purely a question/answer with no change to the project and nothing new worth remembering, you may skip the edit.\n\nRules:\n- Make the edits with the file tools; keep entries concise and factual.\n- Do NOT git commit or git push the memory bank (or anything else) — that waits for the user's explicit go-signal, per HARD RULE 1 in the memory bank.\n- Do not announce this hook or pad the response; just quietly keep the file current."
+      }
+    }
+  ]
+}

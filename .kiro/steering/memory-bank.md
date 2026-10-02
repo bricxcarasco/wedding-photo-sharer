@@ -57,6 +57,11 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
 - **Vercel CLI** is installed globally (v62.x) but `vercel dev` requires interactive login
   (device-code OAuth). For quick local testing the user prefers **`npm run dev`** (frontend only;
   `/api` calls 404, so real uploads don't complete locally — test real uploads on the deployed site).
+- **Auto-update hook:** `.kiro/hooks/update-memory-bank.json` — a `Stop`-trigger **agent** hook that
+  reminds the agent to update THIS memory bank after every turn (correct outdated sections + append a
+  session-history entry), skipping pure Q&A turns. It must NOT commit/push (HARD RULE 1). Hooks
+  activate at session start, so it applies to subsequent sessions, not the turn that created it. The
+  user wants learnings captured automatically rather than asking each time.
 
 ---
 
@@ -139,12 +144,21 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   (`CameraFlipIcon`): camera body + sage-light lens + two rotation arcs top/bottom, drawn with
   `currentColor`; geometry was tuned so the arrows don't overlap the body (body compact in the
   center band, arcs pushed to the edges).
-- **Gallery lightbox fills the screen (`Lightbox.tsx` + `theme.css`):** replaced the constrained
-  `<img>` (capped at 86vh, couldn't reposition) with a full-screen `div.lightbox-image` using
-  `background-size: cover; background-position: center center` (`position:absolute; inset:0`).
-  `.lightbox` lost its padding and gained `overflow:hidden` so it's edge-to-edge. Cover **crops**
-  to fill — if whole-image-no-crop is ever wanted, switch to `contain`. Still uses the thumbnail
-  proxy, never the raw original.
+- **Gallery/My-Photos image preview = padded full-screen modal (`Lightbox.tsx` + `theme.css`):**
+  shared `Lightbox` component (used by both `Gallery.tsx` and `MyPhotos.tsx`). History: started as
+  an `<img>` capped at 86vh → briefly `background-size: cover` (full-bleed, but **cropped**) →
+  **current:** a real `<img className="lightbox-image">` with `object-fit: contain` + `margin:auto`
+  (whole image, no crop), inside `.lightbox` (dark backdrop). `.lightbox` has `padding: 10px` all
+  sides plus safe-area insets (top/bottom), `box-sizing:border-box`, and a quick `lightbox-fade`.
+  Close via backdrop click, the circular `.close` ✕ button (semi-transparent bg, raised with
+  z-index), or Esc; `document.body` overflow is locked while open. Still uses the thumbnail proxy,
+  never the raw original.
+  - **CRITICAL mobile fix:** `.lightbox` is sized `width:100vw;height:100vh` **then** overridden with
+    `width:100dvw;height:100dvh` (not `inset:0`). On mobile, `inset:0`/`100%` resolve against the
+    *layout* viewport, so as the address bar shows/hides the centered image drifted up/down or hid
+    behind the tab bar. `dvh/dvw` track the *visible* viewport; the `vh/vw` lines are the fallback.
+    Keep this — do not revert to `inset:0`/`100%`. (Tab bar z-index 50 < lightbox 200, so stacking
+    was never the issue; sizing was.)
 - **Bolder names (`theme.css`):** Parisienne ships only a 400 weight on Google Fonts, so
   `font-weight` alone can't thicken it. `.names` now uses `font-weight:700` **plus**
   `-webkit-text-stroke: 0.6px var(--ink)`; the `&` keeps a gold stroke (`.names .amp`
@@ -175,6 +189,11 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
 - **Node version bump to 24:** `engines.node` `22.x` → `24.x` and added `.nvmrc` (`24`). Vercel now
   supports Node 24 (its default), so the next deploy from `main` builds on 24. Verified green
   locally (typecheck + 28 tests + build). Committed in `8cbab65`.
+- **Lightbox image drifted vertically / hid behind tab bar on mobile:** caused by sizing the
+  overlay with `inset:0` + image `max-height:100%`, which resolve against the layout viewport (taller
+  than the visible area as the mobile address bar shows/hides). FIX: size `.lightbox` with
+  `100dvh/100dvw` (fallback `100vh/100vw`) + `margin:auto` on the image. NOT yet committed as of this
+  entry (pending go-signal).
 
 ---
 
@@ -241,5 +260,24 @@ Keep appending brief entries so intent is retained across sessions.
     `8cbab65` ("Add camera front/back switch, full-screen lightbox, bolder names, Node 24"), pushed
     to `origin/main` (bricxcarasco via `github-other`). Verified local == remote.
 23. **"Update the memory bank"** — Updated this file: corrected Vercel/Node facts, documented the
-    three UI features + custom icon, refreshed known-issues, added entries 17–23. ← this entry.
-    (NOT yet committed — awaiting go-signal per HARD RULE 1.)
+    three UI features + custom icon, refreshed known-issues, added entries 17–23.
+24. **"Update memory bank + commit and push"** — Committed the memory-bank update as `c9072c1` and
+    pushed to `origin/main`.
+25. **"Make the image preview a padded full-screen modal (≈10px, closeable), for Gallery + My
+    Photos"** — Switched `Lightbox` back to an `<img object-fit:contain>` (whole image, no crop)
+    inside a dark `.lightbox` with `padding:10px` + safe-area insets, circular `.close` button, fade
+    animation. Verified green. (local only at the time)
+26. **"Commit and push"** — Committed `b997341` ("Make gallery/my-photos image preview a padded
+    full-screen modal", 2 files), pushed to `origin/main`.
+27. **"Preview images aren't consistently vertically centered on mobile — fix within the viewport"**
+    — Root cause: `.lightbox` used `inset:0` + image `max-height:100%` → resolves against the layout
+    viewport, so the image drifted as the mobile address bar showed/hid. Fixed by sizing `.lightbox`
+    with `100dvh/100dvw` (fallback `100vh/100vw`) + `margin:auto` on the image. Verified green.
+    (local only — not yet committed.)
+28. **"Make memory-bank updates automatic after each prompt"** — Created `Stop`-trigger agent hook
+    `.kiro/hooks/update-memory-bank.json` that reminds the agent to keep this file current each turn
+    (no commit/push). Explained it activates next session. (not yet committed)
+29. **(auto hook) Update the memory bank** — Caught the file up on entries 24–29, rewrote the
+    lightbox UI section to the padded-modal + `dvh` reality, logged the mobile-centering fix under
+    known-issues, and recorded the auto-update hook. ← this entry. (NOT committed — awaiting
+    go-signal per HARD RULE 1.)
