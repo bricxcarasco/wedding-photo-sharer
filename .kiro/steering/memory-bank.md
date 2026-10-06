@@ -171,10 +171,52 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
     the fallback. Keep this. (Tab bar z-index 50 < lightbox 200, so stacking was never the issue.)
   - **General rule:** any future full-screen overlay/modal in this app must portal to `document.body`
     for the same reason (`.page`'s animated transform traps `position:fixed`).
+- **Landing wedding logo (`Landing.tsx` + `theme.css`):** `src/assets/images/wedding-logo.png`
+  is imported in `Landing.tsx` (`import weddingLogo from '../assets/images/wedding-logo.png'` so
+  Vite bundles/hashes it) and rendered as `<img className="wedding-logo" loading="lazy">` directly
+  BELOW the "No sign-up needed…" note (last element in `<main className="page">`). CSS `.wedding-logo`:
+  `display:block; width:100%; max-width:240px; height:auto; margin:20px auto 8px; object-fit:contain`
+  (centered, never distorts/overflows the content column). Mobile override `@media (max-width:480px)`
+  caps it at `max-width:60vw`, `margin:16px auto 4px`. Build emits `dist/assets/wedding-logo-*.png`.
 - **Bolder names (`theme.css`):** Parisienne ships only a 400 weight on Google Fonts, so
   `font-weight` alone can't thicken it. `.names` now uses `font-weight:700` **plus**
   `-webkit-text-stroke: 0.6px var(--ink)`; the `&` keeps a gold stroke (`.names .amp`
   `-webkit-text-stroke-color: var(--gold)`).
+
+## Performance optimizations (behavior-preserving — applied, local only)
+
+A full frontend perf review was done (context-gatherer + reads). Codebase was already
+well-optimized (route code-splitting via React.lazy, single reused optimize worker, thumbnail
+proxy everywhere, `loading="lazy"`+`decoding="async"` on grid imgs, CSS-only confetti, Lightbox
+portal, singleton engine surviving navigation). Only safe, no-behavior-change tweaks were applied:
+
+- **Engine progress-emit throttling (`src/lib/uploadEngine.ts`) — the main render hotspot.**
+  `onProgress` used to call `this.emit()` on every XHR progress tick → every queue screen re-rendered
+  many times/sec. Added `private progressFrame: number|null`, an `emitProgress()` that coalesces
+  progress-only updates to one emit per animation frame via module helpers `scheduleFrame()`
+  /`cancelFrame()` (rAF with `setTimeout(…,16)` fallback for tests/workers). `emit()` (status changes)
+  stays immediate and now cancels any pending progress frame first; `dispose()` cancels the frame.
+  `onProgress` now calls `emitProgress()` instead of `emit()`. Tests unaffected (they poll
+  `snapshot()`, not emit timing). 28/28 tests still pass.
+- **`QueueRow` wrapped in `React.memo`** (`src/components/QueueRow.tsx`; component renamed to
+  `QueueRowImpl`, exported as `export const QueueRow = memo(QueueRowImpl)`). Safe because the engine
+  mutates each item in place and keeps its object identity stable when unchanged (snapshot spreads the
+  Map into a new array but reuses item refs), so shallow prop compare is correct.
+- **Stable row callbacks** via `useCallback` in `Upload.tsx` and `UploadStatus.tsx`
+  (`handleRetry`/`handleRemove`/`handleResolveDuplicate`) — otherwise inline arrows would defeat the
+  memo. Also wrapped the previously-inline `items.find(status==='duplicate')` and
+  `items.slice().sort(...)` in `useMemo([items])` in UploadStatus.
+- **Landing `active` count** now `useMemo([items])` (`src/pages/Landing.tsx`) instead of inline filter.
+- **`useGallery` `loadMore`/`reload`** now `useCallback([load])` (`src/hooks/useGallery.ts`) so
+  Gallery's IntersectionObserver effect stops re-subscribing every render.
+- **Vite `manualChunks` vendor split** (`vite.config.ts`): `rollupOptions.output.manualChunks`
+  `{ 'react-vendor': ['react','react-dom','react-router-dom'] }`. Result: app main chunk dropped
+  ~190kB → **27kB** (`index-*.js`), React/router now a cacheable **`react-vendor` ~164kB** chunk.
+  Route-level lazy chunks unaffected.
+
+**NOT done (deferred — would risk layout/behavior, need sign-off):** list virtualization on
+Gallery/MyPhotos (DOM grows unbounded on long scroll); explicit `width`/`height` on grid imgs for CLS
+(masonry CSS controls sizing, so could shift layout).
 
 ## Code map (key files)
 
@@ -212,7 +254,7 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   (a scrollable, max-width-640px, padded box) instead of the viewport. The `dvh` sizing fix alone
   could not help while the overlay was trapped. FIX: render `Lightbox` via
   `createPortal(…, document.body)` so it sits outside any transformed ancestor and `position:fixed`
-  resolves against the real viewport. NOT yet committed as of this entry (pending go-signal).
+  resolves against the real viewport. Committed in `8d1a190`.
 
 ---
 
@@ -311,4 +353,74 @@ Keep appending brief entries so intent is retained across sessions.
     trapped inside the scrollable grid box (not the viewport). FIX: render `Lightbox` through
     `createPortal(…, document.body)`. Verified typecheck + build green. Updated the lightbox UI
     section + known-issues with the portal/containing-block gotcha and a general "modals must portal
-    to body" rule. (NOT committed — awaiting go-signal.) ← this entry.
+    to body" rule.
+33. **"Commit and push the updates"** — Go-signal given. Committed `8d1a190` ("Fix lightbox trapped
+    inside page: render via portal to document.body", 2 files: `Lightbox.tsx`, `memory-bank.md`),
+    pushed `1b8c51e..8d1a190` to `origin/main`. Working tree clean. ← this entry.
+34. **"Run the project locally"** — Started the Vite dev server on :5173 via a background
+    process (`wsl bash -lic "source ~/.nvm/nvm.sh && nvm use 24 && npm run dev"`, Node v24.3.0,
+    Vite 5.4.21). Reminded: frontend only, `/api` 404s so real uploads need the deployed site;
+    camera works on localhost. No code/config changes.
+35. **"Add the wedding logo below the 'No sign-up needed' note; make it responsive, esp. mobile"**
+    — Imported `src/assets/images/wedding-logo.png` into `Landing.tsx` and added an
+    `<img className="wedding-logo" loading="lazy">` right after that paragraph. Added `.wedding-logo`
+    CSS (centered, `max-width:240px`, `object-fit:contain`) + a `max-width:480px` override capping at
+    `60vw`. Verified `tsc -b` + `vite build` green (logo emitted as `dist/assets/wedding-logo-*.png`).
+    (local only — not committed.)
+36. **"Review the whole site and make it smoother/faster without changing behavior or adding bugs"**
+    — Ran a context-gatherer perf review, then applied only behavior-preserving changes: rAF-coalesced
+    engine progress emits (`uploadEngine.ts`: `emitProgress`/`progressFrame`/`scheduleFrame`/`cancelFrame`),
+    `React.memo` on `QueueRow`, `useCallback` row handlers in `Upload.tsx`/`UploadStatus.tsx` +
+    `useMemo` for the inline find/sort, `useMemo` for Landing's `active`, `useCallback`
+    `loadMore`/`reload` in `useGallery`, and a Vite `manualChunks` react-vendor split (app chunk
+    190kB→27kB). Verified typecheck clean + 28/28 tests pass + build clean. Deferred (flagged to user):
+    list virtualization + img width/height. (local only — not committed.)
+37. **"Adjust an image-gen prompt (not project-related): add subtle pink to flowers/backdrop;
+    make the central carpet white with slight green shades"** — Non-project text task. Edited the
+    user's wedding-venue image-generation prompt only (no repo files touched): added soft blush pink
+    as a subtle secondary accent in the COLOR MOTIF, wedding backdrop, arc, and all floral
+    centerpieces (with guardrails that it stays delicate); relaxed the "avoid" list so blush pink is
+    allowed while still banning red/purple/blue/hot-pink/pink-dominated; changed the carpet from
+    "white or ivory" to a white carpet with very subtle soft green/sage shading, and updated the
+    floor-plan summary + final-palette lines to match. No code/config/state change.
+38. **"Make the glass stage adjacent to the building (no gap) — adjust the prompt only"** —
+    Non-project text task (no repo files changed). Edited the wedding image-gen prompt: Section 2
+    now specifies the 3×3 glass stage is directly attached to the building/main stage with no gap
+    (seamless extension, no strip of grass between). Mirrored this in the strict-sequence item, the
+    floor-plan summary, and the final-result sequence line.
+39. **"Add flowers on both sides of the carpet; glass stage not huge, only 1.5m × 1.5m —
+    adjust the prompt only"** — Non-project text task (no repo files changed). Edited the wedding
+    image-gen prompt: added a "FLOWERS ALONG THE CARPET" subsection (symmetric florals lining both
+    carpet edges, white/ivory + greenery + subtle blush, kept low/non-blocking); set the 3×3 glass
+    stage to small ~1.5m × 1.5m ("do NOT make it large/oversized"). Mirrored both in the floor-plan
+    summary and final-result sequence line.
+40. **"Monobloc chairs get sage-green linens w/ a bit of design; change 'no excessive flowers' to
+    moderate; make the prompt briefer"** — Non-project text task (no repo files changed). Edited the
+    wedding image-gen prompt: round-table monobloc chairs now dressed in sage green chair
+    linens/covers with a subtle tasteful design (sash/trim/pattern) while VIP tables keep Tiffany
+    chairs; floral guidance changed from "no excessive flowers" to "keep flowers MODERATE" (removed
+    "excessive flowers" from the avoid list); condensed the whole prompt ~60% while preserving all
+    counts, sequence, and constraints.
+41. **"Add minimal flowers on the glass-stage sides; make the carpet not too wide; decorate the
+    building pillars; put a B&H monogram on the LED wall — adjust the prompt only"** — Non-project
+    text task (no repo files changed). Edited the wedding image-gen prompt: added minimal low
+    white+sage floral accents framing the glass stage sides/corners; set the central carpet to a
+    NARROW slim runner ("NOT wide"); added decorated building pillars/columns (wrapped greenery,
+    white flowers w/ blush, draped ivory fabric, warm lighting); LED wall now displays an elegant
+    "B&H" couple-initials monogram in sage/white/ivory. Mirrored all four in the camera and
+    final-result sections.
+42. **"Carpet flowers must be a complete line on each side; couple seating + LED wall + backdrop
+    must be INSIDE the building; backdrop must be elegant — adjust the prompt only"** — Non-project
+    text task (no repo files changed). Edited the wedding image-gen prompt: carpet florals changed
+    to a CONTINUOUS, unbroken, symmetrical line running the full aisle length on both sides (no
+    gaps); backdrop, couple couch, and LED wall now explicitly placed INSIDE the building (under
+    roof/covered interior), not on open grass; backdrop re-emphasized as elegant/sophisticated main
+    focal point. Mirrored in camera + final-result sections.
+43. **"Add flowers on the floor around the wedding couch; backdrop MUST be elegant in a SAGE GREEN
+    motif; make it all realistic — adjust the prompt only"** — Non-project text task (no repo files
+    changed). Edited the wedding image-gen prompt: added floral FLOOR styling (low arrangements +
+    scattered petals, white/ivory + sage + subtle blush) framing the couch base without blocking the
+    couple; backdrop now specified as an elegant SAGE GREEN motif (sage foliage/eucalyptus/olive
+    dominant, white/ivory + hint of blush as accents); reinforced photorealism throughout (intro,
+    style, camera→"CAMERA & REALISM", final-result) — natural lighting, real materials/textures,
+    accurate shadows, explicitly "not a 3D/CGI render."

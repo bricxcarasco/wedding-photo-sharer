@@ -42,16 +42,12 @@ export function useGallery(): GalleryState {
     void load(true);
   }, [load]);
 
-  return {
-    photos,
-    loading,
-    error,
-    hasMore,
-    loadMore: () => void load(false),
-    reload: () => {
-      tokenRef.current = null;
-      setHasMore(true);
-      void load(true);
-    },
-  };
+  const loadMore = useCallback(() => void load(false), [load]);
+  const reload = useCallback(() => {
+    tokenRef.current = null;
+    setHasMore(true);
+    void load(true);
+  }, [load]);
+
+  return { photos, loading, error, hasMore, loadMore, reload };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { QueueItem } from '../lib/types';
 import { formatBytes } from '../lib/format';
 
@@ -21,7 +21,7 @@ interface Props {
   onResolveDuplicate?: (id: string) => void;
 }
 
-export function QueueRow({ item, onRetry, onRemove, onResolveDuplicate }: Props) {
+function QueueRowImpl({ item, onRetry, onRemove, onResolveDuplicate }: Props) {
   const meta = STATUS_META[item.status];
   const thumbUrl = useObjectUrl(item.thumbBlob ?? (item.status === 'queued' ? item.blob : null));
 
@@ -78,6 +78,14 @@ export function QueueRow({ item, onRetry, onRemove, onResolveDuplicate }: Props)
     </div>
   );
 }
+
+/**
+ * Memoized so a single changed row (or a frequent engine progress emit) doesn't
+ * force every other row to re-render. The props are the item object plus stable
+ * callbacks; the engine replaces an item's object identity only when that item
+ * actually changes, so default shallow comparison is correct here.
+ */
+export const QueueRow = memo(QueueRowImpl);
 
 /** Create and revoke an object URL for a blob. */
 function useObjectUrl(blob: Blob | null): string | null {

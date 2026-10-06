@@ -1,14 +1,18 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Monogram } from '../components/Monogram';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useUploadQueue } from '../hooks/useUploadQueue';
+import weddingLogo from '../assets/images/wedding-logo.png';
 
 export default function Landing() {
   const nav = useNavigate();
   const { items } = useUploadQueue();
-  const active = items.filter(
-    (i) => i.status !== 'done' && i.status !== 'failed'
-  ).length;
+  const active = useMemo(
+    () =>
+      items.filter((i) => i.status !== 'done' && i.status !== 'failed').length,
+    [items]
+  );
 
   return (
     <main className="page">
@@ -57,6 +61,13 @@ export default function Landing() {
         No sign-up needed. Your photos are linked to this device so you can find
         them again under &ldquo;My Photos&rdquo;.
       </p>
+
+      <img
+        className="wedding-logo"
+        src={weddingLogo}
+        alt="Bricx & Hannah wedding logo"
+        loading="lazy"
+      />
     </main>
   );
 }

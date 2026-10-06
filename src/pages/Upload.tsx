@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Monogram } from '../components/Monogram';
 import { OfflineBanner } from '../components/OfflineBanner';
@@ -33,6 +33,13 @@ export default function Upload() {
     () => items.slice().sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
     [items]
   );
+
+  // Stable callbacks so memoized QueueRows don't re-render on every emit.
+  const handleRetry = useCallback((id: string) => void uploadEngine.retry(id), []);
+  const handleRemove = useCallback((id: string) => void uploadEngine.remove(id), []);
+  const handleResolveDuplicate = useCallback(() => {
+    /* handled by the dialog below */
+  }, []);
 
   async function addFiles(files: FileList | File[]) {
     const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
@@ -116,11 +123,9 @@ export default function Upload() {
               <QueueRow
                 key={item.id}
                 item={item}
-                onRetry={(id) => void uploadEngine.retry(id)}
-                onRemove={(id) => void uploadEngine.remove(id)}
-                onResolveDuplicate={() => {
-                  /* handled by the dialog below */
-                }}
+                onRetry={handleRetry}
+                onRemove={handleRemove}
+                onResolveDuplicate={handleResolveDuplicate}
               />
             ))}
           </div>

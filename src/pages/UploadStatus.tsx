@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Monogram } from '../components/Monogram';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { QueueRow } from '../components/QueueRow';
@@ -18,8 +18,21 @@ export default function UploadStatus() {
     return { done, failed, active, total: items.length };
   }, [items]);
 
-  const pendingDuplicate = items.find((i) => i.status === 'duplicate');
-  const ordered = items.slice().sort((a, b) => b.createdAt - a.createdAt);
+  const pendingDuplicate = useMemo(
+    () => items.find((i) => i.status === 'duplicate'),
+    [items]
+  );
+  const ordered = useMemo(
+    () => items.slice().sort((a, b) => b.createdAt - a.createdAt),
+    [items]
+  );
+
+  // Stable callbacks so memoized QueueRows don't re-render on every emit.
+  const handleRetry = useCallback((id: string) => void uploadEngine.retry(id), []);
+  const handleRemove = useCallback((id: string) => void uploadEngine.remove(id), []);
+  const handleResolveDuplicate = useCallback(() => {
+    /* dialog below */
+  }, []);
 
   return (
     <main className="page">
@@ -72,11 +85,9 @@ export default function UploadStatus() {
               <QueueRow
                 key={item.id}
                 item={item}
-                onRetry={(id) => void uploadEngine.retry(id)}
-                onRemove={(id) => void uploadEngine.remove(id)}
-                onResolveDuplicate={() => {
-                  /* dialog below */
-                }}
+                onRetry={handleRetry}
+                onRemove={handleRemove}
+                onResolveDuplicate={handleResolveDuplicate}
               />
             ))}
           </section>

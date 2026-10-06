@@ -74,6 +74,7 @@ class UploadEngine {
   private disposed = false;
   private online = isOnline();
   private cfg: EngineConfig;
+  private progressFrame: number | null = null;
   // Duplicate decisions the user still has to make block that item until set.
 
   constructor(config: Partial<EngineConfig> = {}) {
@@ -83,6 +84,10 @@ class UploadEngine {
   /** Stop scheduling new work (used by tests to isolate instances). */
   dispose(): void {
     this.disposed = true;
+    if (this.progressFrame !== null) {
+      cancelFrame(this.progressFrame);
+      this.progressFrame = null;
+    }
     this.listeners.clear();
   }
 
@@ -136,8 +141,31 @@ class UploadEngine {
   }
 
   private emit() {
+    // A real state change: flush immediately and cancel any pending
+    // progress-only frame so we don't emit twice back-to-back.
+    if (this.progressFrame !== null) {
+      cancelFrame(this.progressFrame);
+      this.progressFrame = null;
+    }
     const snap = this.snapshot();
     for (const l of this.listeners) l(snap);
+  }
+
+  /**
+   * Coalesce high-frequency upload-progress updates into at most one emit per
+   * animation frame. Progress ticks fire on every XHR progress event (many per
+   * second per concurrent upload); without this they would re-render every
+   * queue screen far more often than the display can show. Status changes
+   * still go through emit() and remain immediate.
+   */
+  private emitProgress() {
+    if (this.disposed || this.progressFrame !== null) return;
+    this.progressFrame = scheduleFrame(() => {
+      this.progressFrame = null;
+      if (this.disposed) return;
+      const snap = this.snapshot();
+      for (const l of this.listeners) l(snap);
+    });
   }
 
   private async persist(item: QueueItem) {
@@ -349,7 +377,7 @@ class UploadEngine {
           total: item.size,
           onProgress: (loaded) => {
             item.progress = Math.min(0.98, loaded / item.size);
-            this.emit();
+            this.emitProgress();
           },
         });
         item.bytesSent = res.bytesCommitted;
@@ -421,6 +449,19 @@ class UploadEngine {
 function cryptoId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// Schedule a callback for the next animation frame, falling back to a short
+// timer where rAF is unavailable (e.g. tests, some workers). Returns an opaque
+// handle usable with cancelFrame().
+function scheduleFrame(cb: () => void): number {
+  if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(cb);
+  return setTimeout(cb, 16) as unknown as number;
+}
+
+function cancelFrame(handle: number): void {
+  if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(handle);
+  else clearTimeout(handle);
 }
 
 // Singleton.

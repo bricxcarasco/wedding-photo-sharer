@@ -627,3 +627,22 @@ h3 {
     display: none;
   }
 }
+
+/* ─── Landing wedding logo ─────────────────────────────────────────────────
+   Responsive, centered logo below the "No sign-up needed" note. Scales with
+   the viewport but never exceeds its natural size or the content column. */
+.wedding-logo {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  margin: 20px auto 8px;
+  object-fit: contain;
+}
+
+@media (max-width: 480px) {
+  .wedding-logo {
+    max-width: 60vw;
+    margin: 16px auto 4px;
+  }
+}

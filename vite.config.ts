@@ -10,6 +10,17 @@ export default defineConfig({
   build: {
     target: 'es2020',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split the stable framework runtime into its own chunk so it stays
+        // cached across app deploys (app code changes far more often than
+        // React/router). Purely a caching/splitting optimization — no behavior
+        // change. Route-level code-splitting (React.lazy in App.tsx) is unaffected.
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',
