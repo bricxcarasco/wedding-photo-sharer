@@ -606,7 +606,9 @@ Keep appending brief entries so intent is retained across sessions.
   infinite-scroll (`loadMore`, 400px rootMargin, +"Load more" fallback button) is kept, and each
   `<img>` keeps `loading="lazy"`.
 - `src/theme.css` — added a `.gallery-list` style block (`.gallery-row`, `.gallery-thumb`,
-  `.gallery-meta`, `.gallery-name`, `.gallery-date`). All scoped under `.gallery-list`.
+  `.gallery-meta`, `.gallery-name`, `.gallery-date`). All scoped under `.gallery-list`. Row
+  background = `var(--sage)` (rgb(138,154,123)) with matching sage border; `.gallery-name` and
+  `.gallery-date` text = `#fff` (white). `.gallery-row.mine` keeps a gold-soft border accent.
 - **IMPORTANT scoping:** `.masonry`/`.tile` are SHARED by `MyPhotos.tsx` — left completely untouched,
   so My Photos still uses the column/masonry grid. Only the Gallery page changed. No other pages/
   functionality altered. Lightbox, useGallery hook, and the API are unchanged.
@@ -619,3 +621,14 @@ Keep appending brief entries so intent is retained across sessions.
     kept the IntersectionObserver infinite scroll + per-image `loading="lazy"`, added scoped CSS, and
     deliberately left the shared `.masonry`/`.tile` (My Photos) untouched. Verified typecheck + build
     green (Gallery 2.69 kB chunk, MyPhotos unchanged). (local only — not committed.)
+62. **"Commit and push all updates"** — Go-signal given. Staged `src/pages/Gallery.tsx`,
+    `src/theme.css`, `.kiro/steering/memory-bank.md` (`.env` correctly git-ignored, not staged);
+    committed `9fc5cce` ("Gallery: stacked list layout with lazy loading, name and upload time",
+    3 files, +163/-10); pushed `281a7dd..9fc5cce` to `origin/main` via `github-other` (bricxcarasco).
+    Verified via push output `281a7dd..9fc5cce main -> main`. Cleaned up scratch files. Vercel
+    auto-redeploys. Reminder to user: this deploy only fixes the 500s if the new
+    `GOOGLE_REFRESH_TOKEN` was already saved in Vercel env vars + redeployed after saving. ← this entry.
+63. **"Make the gallery list background rgb(138,154,123) and the text white"** — Set `.gallery-row`
+    background + border to `var(--sage)` (= rgb(138,154,123)) and `.gallery-name`/`.gallery-date`
+    color to `#fff` in `theme.css`. Kept `.gallery-row.mine` gold border (good contrast on sage).
+    Verified typecheck + build green. (local only before this commit.)

@@ -711,8 +711,8 @@ h3 {
   gap: 12px;
   width: 100%;
   text-align: left;
-  background: var(--cream-card);
-  border: 1.5px solid var(--sage-wash);
+  background: var(--sage); /* rgb(138, 154, 123) */
+  border: 1.5px solid var(--sage);
   border-radius: var(--radius-sm);
   padding: 8px;
   cursor: pointer;
@@ -749,7 +749,7 @@ h3 {
 }
 .gallery-name {
   font-size: 0.9rem;
-  color: var(--ink);
+  color: #fff;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -757,5 +757,5 @@ h3 {
 }
 .gallery-date {
   font-size: 0.76rem;
-  color: var(--ink-soft);
+  color: #fff;
 }
