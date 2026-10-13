@@ -634,7 +634,7 @@ h3 {
 .wedding-logo {
   display: block;
   width: 100%;
-  max-width: 240px;
+  max-width: 140px;
   height: auto;
   margin: 20px auto 8px;
   object-fit: contain;
@@ -642,7 +642,7 @@ h3 {
 
 @media (max-width: 480px) {
   .wedding-logo {
-    max-width: 60vw;
+    max-width: 35vw;
     margin: 16px auto 4px;
   }
 }

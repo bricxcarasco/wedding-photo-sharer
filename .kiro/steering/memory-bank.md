@@ -175,9 +175,10 @@ Full rationale is in `ARCHITECTURE.md`; deployment/setup in `README.md`.
   is imported in `Landing.tsx` (`import weddingLogo from '../assets/images/wedding-logo.png'` so
   Vite bundles/hashes it) and rendered as `<img className="wedding-logo" loading="lazy">` directly
   BELOW the "No sign-up needed…" note (last element in `<main className="page">`). CSS `.wedding-logo`:
-  `display:block; width:100%; max-width:240px; height:auto; margin:20px auto 8px; object-fit:contain`
+  `display:block; width:100%; max-width:140px; height:auto; margin:20px auto 8px; object-fit:contain`
   (centered, never distorts/overflows the content column). Mobile override `@media (max-width:480px)`
-  caps it at `max-width:60vw`, `margin:16px auto 4px`. Build emits `dist/assets/wedding-logo-*.png`.
+  caps it at `max-width:35vw`, `margin:16px auto 4px`. Build emits `dist/assets/wedding-logo-*.png`.
+  (Sizes shrunk from 240px/60vw → 180px/45vw → 140px/35vw at user request.)
 - **Bolder names (`theme.css`):** Parisienne ships only a 400 weight on Google Fonts, so
   `font-weight` alone can't thicken it. `.names` now uses `font-weight:700` **plus**
   `-webkit-text-stroke: 0.6px var(--ink)`; the `&` keeps a gold stroke (`.names .amp`
@@ -424,3 +425,17 @@ Keep appending brief entries so intent is retained across sessions.
     dominant, white/ivory + hint of blush as accents); reinforced photorealism throughout (intro,
     style, camera→"CAMERA & REALISM", final-result) — natural lighting, real materials/textures,
     accurate shadows, explicitly "not a 3D/CGI render."
+37. **"Commit and push our updates"** — Go-signal given. Staged the 10 changed files explicitly
+    (wedding logo asset + Landing/theme + perf changes + memory-bank), committed `f050db7` ("Add
+    landing wedding logo; behavior-preserving perf pass", +248/-34), pushed to `origin/main` via
+    `github-other` (bricxcarasco). Verified remote refs/heads/main == local == f050db7. Working tree
+    clean. (Covers entries 35 + 36.)
+44. **"Run it locally so I can test"** — Started the Vite dev server on :5173 via a background
+    process (`wsl bash -lic "source ~/.nvm/nvm.sh && nvm use 24 && npm run dev"`, Node v24.3.0,
+    Vite 5.4.21). Reminded: frontend only, `/api` 404s so real uploads need the deployed site;
+    camera works on localhost. No code/config changes.
+45. **"Make the landing logo a bit smaller"** — Shrank `.wedding-logo` in `theme.css`:
+    `max-width` 240px → 180px (desktop) and 60vw → 45vw (mobile ≤480px). Dev server hot-reloads.
+    (local only — not committed.)
+46. **"A little bit smaller again"** — Shrank `.wedding-logo` further in `theme.css`:
+    `max-width` 180px → 140px (desktop) and 45vw → 35vw (mobile ≤480px). (local only — not committed.)
