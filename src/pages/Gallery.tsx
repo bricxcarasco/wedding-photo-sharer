@@ -3,6 +3,7 @@ import { Monogram } from '../components/Monogram';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { Lightbox } from '../components/Lightbox';
 import { useGallery } from '../hooks/useGallery';
+import { formatDateTime } from '../lib/format';
 import type { PhotoRecord } from '../lib/types';
 
 export default function Gallery() {
@@ -49,18 +50,25 @@ export default function Gallery() {
           <p>No photos yet — be the first to share one!</p>
         </div>
       ) : (
-        <div className="masonry">
+        <ul className="gallery-list">
           {photos.map((p) => (
-            <button
-              key={p.id}
-              className={`tile ${p.mine ? 'mine' : ''}`}
-              onClick={() => setActive(p)}
-              aria-label={`Open photo ${p.name}`}
-            >
-              <img src={p.thumbnailUrl} alt="" loading="lazy" decoding="async" />
-            </button>
+            <li key={p.id}>
+              <button
+                className={`gallery-row ${p.mine ? 'mine' : ''}`}
+                onClick={() => setActive(p)}
+                aria-label={`Open photo ${p.name}`}
+              >
+                <span className="gallery-thumb">
+                  <img src={p.thumbnailUrl} alt="" loading="lazy" decoding="async" />
+                </span>
+                <span className="gallery-meta">
+                  <span className="gallery-name">{p.name}</span>
+                  <span className="gallery-date">{formatDateTime(p.uploadedAt)}</span>
+                </span>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       <div ref={sentinel} style={{ height: 1 }} />

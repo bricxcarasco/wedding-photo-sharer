@@ -691,3 +691,71 @@ h3 {
   border: none;
   cursor: pointer;
 }
+
+/* ─── Gallery stacked list (mobile-friendly, lighter than the masonry grid) ──
+   Scoped to .gallery-list only — the shared .masonry/.tile grid used by
+   My Photos is intentionally left untouched. Each row: thumbnail + file name +
+   upload date/time. Images keep loading="lazy" so they load as you scroll. */
+.gallery-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gallery-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--cream-card);
+  border: 1.5px solid var(--sage-wash);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  cursor: pointer;
+  transition: transform 0.14s var(--ease), box-shadow 0.2s;
+}
+.gallery-row:active {
+  transform: scale(0.99);
+}
+.gallery-row.mine {
+  border-color: var(--gold-soft);
+}
+
+.gallery-thumb {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--sage-wash);
+  display: block;
+}
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* allow the name to ellipsize instead of overflowing */
+}
+.gallery-name {
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gallery-date {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}

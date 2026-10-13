@@ -542,3 +542,80 @@ Keep appending brief entries so intent is retained across sessions.
     won't force verification. Reminded: click **Save** → Audience **Publish app**. Still pending (my
     steps): commit+push `/privacy` so the URL resolves in prod (currently 404), then regen token +
     update `.env`/Vercel + redeploy + verify. Awaiting go-signal to commit+push. (no code change)
+58. **(Audience screenshot) App now "In production"** — Publishing status flipped to **In production**
+    (External). This resolves the ~7-day refresh-token expiry going forward. The yellow "Your app
+    requires verification / submit for review" banner is HARMLESS and can be IGNORED: verification is
+    only enforced for sensitive/restricted scopes; this app uses only non-sensitive `drive.file`, so
+    nothing to submit and nothing gets cut off (the page's own OAuth-user-cap note confirms the cap/
+    verification only apply "if requesting approved sensitive or restricted scopes"). Do NOT click
+    "Back to testing" (would reinstate the 7-day expiry). Restarted `npm run token` (reused terminal,
+    Node v24.3.0) — again printing the consent URL and waiting on `http://localhost:4567/oauth2callback`.
+    Pending: user approves (sign in as `thedeventrep@gmail.com`, click past unverified-app warning,
+    approve Drive) → capture new token → update `.env` + Vercel (Prod+Preview) → redeploy → verify
+    Gallery/My Photos. (no code change this turn)
+
+### CRITICAL Google OAuth facts (learned this session — keep)
+- The old "OAuth consent screen" is now **Google Auth Platform** (console.cloud.google.com/auth/...).
+  **Publish app** lives on the **Audience** tab (Publishing status section), NOT Overview.
+- Publishing requires Branding fields first: app name, user support email, app homepage URL, and
+  **privacy policy URL** (ToS URL is OPTIONAL). That's why Publish app was greyed out until Branding
+  was completed.
+- **Testing mode force-expires refresh tokens ~7 days out** → `invalid_grant` "Token has been expired
+  or revoked" on `oauth2.googleapis.com/token`, surfacing as the generic 500 in `api/gallery.ts` /
+  `api/my-photos.ts` (shared `getOAuth()`→`getAccessToken()` in `api/_lib/drive.ts`). Publishing to
+  Production stops this (token effectively non-expiring under normal use).
+- Because the app uses only the **non-sensitive `drive.file`** scope, **publishing does NOT trigger
+  Google verification review** despite the scary banner. The only effect is the owner-only
+  "unverified app" consent warning.
+- After publishing, regenerate the refresh token (`npm run token`) so it's minted under Production
+  rules, then update `GOOGLE_REFRESH_TOKEN` in `.env` AND Vercel (Production + Preview) and redeploy.
+59. **User approved the OAuth consent → new refresh token minted** — `npm run token` completed
+    (browser showed "Success!"); script printed a fresh `GOOGLE_REFRESH_TOKEN` (folder id unchanged
+    `1UioFozdkLHYHSByQmuqDTzAMlmKNzHwA`). Updated the token line in local `.env` (git-ignored — NOT
+    committed, HARD RULE 2). Stopped the token terminal. Only `GOOGLE_REFRESH_TOKEN` changed; client
+    id/secret + folder id unchanged. Gave user the Vercel steps: Settings → Environment Variables →
+    edit `GOOGLE_REFRESH_TOKEN` (paste WITHOUT quotes, Production + Preview) → Save → **Redeploy**
+    (env changes need a new deploy; note the `/privacy` push 281a7dd built with the OLD token, so a
+    redeploy AFTER saving the new token is required) → verify Gallery/My Photos load + `/privacy`
+    resolves. Token no longer expires now that the app is In Production. Awaiting user confirmation
+    that Vercel is updated + redeployed. (secret value intentionally NOT recorded here)
+60. **"Free-tier Google account — will it work through Feb 2027 without re-refreshing the token?"** —
+    Answered yes (Q&A, no code change). Key facts recorded:
+    * The app uses ONLY the **Google Drive API** (free, quota-based, no GCP billing/credit card). The
+      "Google Cloud free tier expiring" concern doesn't apply — no compute/storage GCP services used.
+    * Now that the app is **In Production**, the OAuth refresh token has **no fixed expiry**; it keeps
+      working as long as it's used within ~6 months (ours runs constantly), the account password/
+      security isn't changed, access isn't revoked, and the OAuth client/project isn't deleted. So it
+      covers now → Feb 2027 and beyond with no manual refresh.
+    * **The real limit = Google Drive storage: free account has 15 GB** shared across Gmail/Drive/
+      Photos. Optimized phone photos ~1–3 MB each → thousands fit; one wedding very unlikely to hit it,
+      but a very photo-heavy crowd could. Cheap fix if needed: Google One 100 GB (~couple $/month).
+    * Drive API request quota (~12k req/min, ~1B/day) is far beyond a wedding's needs.
+    * OAuth **100-user cap** only counts users who authorize via Google sign-in — only the OWNER ever
+      does (once, to mint the token); guests never sign in. So 1/100 forever, not a concern.
+    Offered to add a storage check or help verify the Vercel redeploy. (no code change this turn)
+
+## Gallery stacked-list layout (replaced masonry grid on the Gallery page only)
+
+- `src/pages/Gallery.tsx` — the gallery now renders a **stacked list** (`<ul className="gallery-list">`)
+  instead of the `.masonry`/`.tile` grid. Each row (`.gallery-row` button) shows: a square thumbnail
+  (`.gallery-thumb` → `<img loading="lazy" decoding="async">`), the **file name** (`.gallery-name`,
+  ellipsized), and the **upload date/time** (`.gallery-date`, via `formatDateTime(p.uploadedAt)` from
+  `src/lib/format.ts`). `p.mine` adds a gold border (`.gallery-row.mine`). Clicking a row still opens
+  the shared `Lightbox`. Progressive/lazy loading is twofold: the existing `IntersectionObserver`
+  infinite-scroll (`loadMore`, 400px rootMargin, +"Load more" fallback button) is kept, and each
+  `<img>` keeps `loading="lazy"`.
+- `src/theme.css` — added a `.gallery-list` style block (`.gallery-row`, `.gallery-thumb`,
+  `.gallery-meta`, `.gallery-name`, `.gallery-date`). All scoped under `.gallery-list`.
+- **IMPORTANT scoping:** `.masonry`/`.tile` are SHARED by `MyPhotos.tsx` — left completely untouched,
+  so My Photos still uses the column/masonry grid. Only the Gallery page changed. No other pages/
+  functionality altered. Lightbox, useGallery hook, and the API are unchanged.
+- Verified: `npm run typecheck` + `npm run build` green; Gallery chunk 2.69 kB, MyPhotos unchanged.
+  (local only — NOT committed, awaiting go-signal.)
+
+61. **"Change Gallery (only) to a stacked list w/ lazy loading; each row = thumbnail + file name +
+    upload date/time; leave other pages unchanged. Possible?"** — Yes; implemented. Rewrote the
+    Gallery grid as a `.gallery-list` of `.gallery-row` items (thumb + name + `formatDateTime` date),
+    kept the IntersectionObserver infinite scroll + per-image `loading="lazy"`, added scoped CSS, and
+    deliberately left the shared `.masonry`/`.tile` (My Photos) untouched. Verified typecheck + build
+    green (Gallery 2.69 kB chunk, MyPhotos unchanged). (local only — not committed.)
