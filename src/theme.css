@@ -646,3 +646,48 @@ h3 {
     margin: 16px auto 4px;
   }
 }
+
+/* ─── Prose (static text pages, e.g. Privacy) ──────────────────────────────
+   Readable long-form body text that still fits the wedding theme. */
+.prose {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.prose h2 {
+  font-size: 1.05rem;
+  margin: 20px 0 6px;
+  color: var(--ink);
+}
+
+.prose p {
+  margin: 0 0 12px;
+}
+
+.prose ul {
+  margin: 0 0 12px;
+  padding-left: 1.2em;
+}
+
+.prose li {
+  margin: 0 0 8px;
+}
+
+.prose a {
+  color: var(--sage-deep);
+  text-decoration: underline;
+}
+
+/* Small footer link to the privacy page on the landing screen. */
+.privacy-link {
+  display: block;
+  text-align: center;
+  margin: 10px auto 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}

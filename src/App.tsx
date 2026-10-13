@@ -12,11 +12,12 @@ const Upload = lazy(() => import('./pages/Upload'));
 const MyPhotos = lazy(() => import('./pages/MyPhotos'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const UploadStatus = lazy(() => import('./pages/UploadStatus'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 const NotFound = lazy(() => import('./pages/errors/NotFound'));
 
 export default function App() {
   const { pathname } = useLocation();
-  const hideTabs = pathname === '/'; // landing has its own big actions
+  const hideTabs = pathname === '/' || pathname === '/privacy'; // standalone pages
   const caps = useMemo(() => detectCapabilities(), []);
   useRipple();
 
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/photos" element={<MyPhotos />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/upload-status" element={<UploadStatus />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

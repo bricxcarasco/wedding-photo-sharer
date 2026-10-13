@@ -68,6 +68,10 @@ export default function Landing() {
         alt="Bricx & Hannah wedding logo"
         loading="lazy"
       />
+
+      <button className="privacy-link" onClick={() => nav('/privacy')}>
+        Privacy Policy
+      </button>
     </main>
   );
 }

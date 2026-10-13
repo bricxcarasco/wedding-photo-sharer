@@ -228,7 +228,7 @@ Gallery/MyPhotos (DOM grows unbounded on long scroll); explicit `width`/`height`
 - `src/lib/` — uploadEngine.ts (singleton queue: concurrency 3, retry+backoff, resume-on-return,
   EngineConfig ctor + dispose() for tests), db.ts (IndexedDB via idb), guest.ts, hash.ts (SHA-256),
   imageOptimize.ts (+ worker), api.ts, net.ts, capabilities.ts, config.ts.
-- `src/pages/` — Landing, Upload, MyPhotos, Gallery, UploadStatus, errors/.
+- `src/pages/` — Landing, Upload, MyPhotos, Gallery, UploadStatus, Privacy, errors/.
 - `scripts/get-refresh-token.mjs` — `npm run token`.
 - Tests: `npm test` → 28 tests, 5 files (vitest). Verify loop:
   `npm run typecheck && npm test && npm run build` (all green as of last run).
@@ -439,3 +439,106 @@ Keep appending brief entries so intent is retained across sessions.
     (local only — not committed.)
 46. **"A little bit smaller again"** — Shrank `.wedding-logo` further in `theme.css`:
     `max-width` 180px → 140px (desktop) and 45vw → 35vw (mobile ≤480px). (local only — not committed.)
+47. **"Commit and push our updates"** — Go-signal given. Staged `src/theme.css` + this memory-bank,
+    committed `7a4413d` ("Shrink landing wedding logo (140px / 35vw)", 2 files), pushed to
+    `origin/main` via `github-other` (bricxcarasco). Verified remote main == local HEAD
+    (`7a4413dcc95ad34c7e53d4a9472aecf052c269a3`). Note: the PowerShell→WSL terminal mangles output and
+    returns Exit Code -1 even on success — verified push by writing `ls-remote` to a workspace scratch
+    file and reading it, then cleaned up.
+48. **"Production My Photos + Gallery 500 — is it the Google credentials expiring?"** — Diagnosis
+    (no code change). Browser response was `{"error":"Could not load the gallery"}` — the generic
+    catch-all in `api/gallery.ts` (`console.error('gallery failed', e); clientError(res,500,...)`).
+    Both `gallery` and `my-photos` share the same `getOAuth()`→`getAccessToken()` path in
+    `api/_lib/drive.ts`, so a dead refresh token breaks BOTH at once while the static app shell still
+    loads — exactly the observed symptom. Most likely cause = **`GOOGLE_REFRESH_TOKEN` expired**
+    because the Google consent screen is still in **Testing** mode (unverified-app refresh tokens
+    expire ~7 days out; matches "worked before, now errors"). NOT the client id/secret (don't expire),
+    NOT the folder id (would give empty results, not 500), NOT a code bug (nothing changed server-side).
+    To CONFIRM: Vercel dashboard → Logs, filter `gallery failed`; `invalid_grant` / "Token has been
+    expired or revoked" = confirmed. FIX: rerun `npm run token`, update `GOOGLE_REFRESH_TOKEN` locally
+    + in Vercel (Production + Preview), redeploy. PERMANENT FIX: publish the OAuth app to Production on
+    the Google consent screen so the refresh token stops expiring. Awaiting user's choice (confirm via
+    logs vs. just regenerate).
+49. **Confirmed the gallery/my-photos 500 cause from Vercel logs** — `GaxiosError: invalid_grant`,
+    `error_description: 'Token has been expired or revoked.'` from `https://oauth2.googleapis.com/token`,
+    stack through `getSubfolderId`→`listPhotos`→`gallery` handler. 100% the expired `GOOGLE_REFRESH_TOKEN`
+    (Testing-mode ~7-day expiry), as predicted in entry 48. Started `npm run token` (background process,
+    Node v24.3.0) which printed the Google consent URL and is waiting on `http://localhost:4567/oauth2callback`.
+    Reminded user: sign in as `thedeventrep@gmail.com` (test user; else 403 access_denied), click
+    Advanced→proceed past the unverified-app warning, approve Drive. Pending: user approves → capture new
+    refresh token → update `.env` locally + Vercel (Production+Preview) → redeploy. Permanent fix =
+    publish OAuth app to Production so token stops expiring. (no code change this turn)
+50. **"Can we make the token last 1 year / never expire?"** — Explained: no literal expiry setting;
+    instead change the mode that causes expiry. TWO options recorded:
+    * **Option A (recommended, free, no code change): Publish the OAuth app to Production.** Google
+      Cloud Console → APIs & Services → OAuth consent screen → **Publish app**. The ~7-day refresh-token
+      expiry only applies in **Testing** mode; in **Production** the refresh token does not expire as
+      long as it's used within ~6 months (ours runs constantly), isn't revoked, and the Google account
+      password/security isn't changed (limit ~100 live tokens/client; we have 1). Because the app uses
+      ONLY the `drive.file` scope (NON-sensitive — app sees only files it created), publishing does
+      NOT trigger Google verification review (no privacy policy/video needed); you just get the
+      harmless "unverified app" warning that only the owner ever sees. After publishing, rerun
+      `npm run token` so the token is minted under Production rules, then update `.env` + Vercel.
+    * **Option B (truly zero expiry, needs a code change): Service Account.** Swap the `OAuth2` client
+      in `api/_lib/drive.ts` for `google.auth.GoogleAuth` with a service-account JSON key — key-based
+      auth, nothing to expire. Caveat: a service account has no Drive storage of its own, so share the
+      wedding root folder with the service account's email (or use a Shared Drive). One extra secret
+      (JSON key / base64) replaces the 3 GOOGLE_* OAuth vars.
+    Recommended path: finish today's token regen to restore the site, then publish to Production.
+    (no code change this turn)
+51. **"Where is Publish app in the console?"** — Google renamed the "OAuth consent screen" to
+    **Google Auth Platform** (console.cloud.google.com/auth/...). The **Publish app** button is NOT on
+    the Overview page — it's under the **Audience** tab (left sidebar) in the **Publishing status**
+    section (shows "Testing" → click **Publish app** → confirm → flips to "In production"). The
+    Audience tab is also where the old Test users list lives. Because the app uses only the
+    non-sensitive `drive.file` scope, no verification submission is required (ignore any "Prepare for
+    verification" prompt; "unverified app" warning is harmless, owner-only). After it reads
+    "In production", rerun `npm run token` and update `.env` + Vercel. (no code change this turn)
+52. **"Publish app" button is greyed out** — Google requires Branding fields before allowing the
+    switch to external Production. Tooltip: valid **app name, user support email, app homepage URL,
+    and privacy policy URL** required → set them on the **Branding** tab (left sidebar), save, then
+    Audience → Publish app becomes clickable. Suggested values: app name "Bricx & Hannah Wedding",
+    support email `thedeventrep@gmail.com`, homepage `https://bricxhannah-wedding-photos.vercel.app`.
+    Privacy policy URL is the catch — either reuse the homepage URL, or add a real `/privacy` page to
+    the site. Filling these is metadata only; still NO verification review needed (non-sensitive
+    `drive.file` scope). Also noted: OAuth user cap in Testing = 100 users/lifetime; currently
+    "1 user (1 test, 0 other) / 100 user cap". Awaiting user's choice on the privacy URL. (no code
+    change this turn)
+
+## Privacy page (`/privacy`) — added for Google OAuth "Publish app" requirement
+
+- `src/pages/Privacy.tsx` — themed privacy policy page (uses `COUPLE`/`WEDDING_DATE_LABEL` from
+  `src/lib/config.ts`). Content: no accounts/passwords, photos stored in couple's private Google
+  Drive, device-local random guestId for "My Photos", only `drive.file` scope (app can't see the
+  rest of a user's Drive), no ad/tracking cookies, how to request deletion, link to Google's privacy
+  policy, "Back to home" button.
+- `src/App.tsx` — `Privacy` lazy-loaded; `<Route path="/privacy">` added above the `*` catch-all;
+  `hideTabs` now also true for `/privacy` (standalone page, like `/`).
+- `src/theme.css` — added `.prose` styles (readable long-form body/h2/ul/li/a using `--ink`/
+  `--sage-deep`) and `.privacy-link` (small centered underlined footer link, `--ink-soft`).
+- `src/pages/Landing.tsx` — added a subtle `.privacy-link` button under the wedding logo → `/privacy`.
+- SPA routing: existing `vercel.json` rewrite `"/((?!api/).*)" → /index.html` already serves
+  `/privacy` on a direct hit, so no config change needed.
+- Verified: `npm run typecheck` + `npm run build` green; Privacy emits its own lazy chunk (~2.85 kB).
+- Privacy URL for the Google Branding page (goes live only AFTER deploy):
+  `https://bricxhannah-wedding-photos.vercel.app/privacy`.
+
+53. **"Add a /privacy page for the OAuth Branding privacy-policy URL"** — Created `Privacy.tsx`,
+    wired the lazy route + hideTabs in `App.tsx`, added `.prose`/`.privacy-link` CSS, and a landing
+    footer link. Verified typecheck + build green (Privacy = own 2.85 kB chunk). Next steps for user:
+    commit+push → confirm `/privacy` loads on prod → fill Branding fields (app name, support email,
+    homepage, the `/privacy` URL) → Audience Publish app → regen token (`npm run token`) → update
+    `.env` + Vercel → redeploy. (local only — NOT committed, awaiting go-signal.)
+54. **"What about the Application Terms of Service link?"** — Clarified: on the Google Branding
+    page the **Application Terms of Service URL is OPTIONAL** (not required to Publish app, unlike the
+    privacy policy URL which IS required). Offered to add a matching `/terms` page for consistency
+    (same pattern as `/privacy`, URL `https://bricxhannah-wedding-photos.vercel.app/terms`). Awaiting
+    user's choice — add `/terms` or leave the ToS field blank. (no code change this turn)
+56. **(Branding page full screenshot) "Is this all good?"** — Confirmed all fields correct: App name
+    **"Bricx & Hannah Wedding Photos"**, support email `thedeventrep@gmail.com`, logo uploaded (B&H
+    wreath monogram shows in preview), home + privacy URLs set. Google panel confirms "Verification is
+    not required since your app is in Testing status"; the logo "submit for verification" warning only
+    applies to sensitive/restricted scopes (we use only non-sensitive `drive.file`), so publishing
+    won't force verification. Reminded: click **Save** → Audience **Publish app**. Still pending (my
+    steps): commit+push `/privacy` so the URL resolves in prod (currently 404), then regen token +
+    update `.env`/Vercel + redeploy + verify. Awaiting go-signal to commit+push. (no code change)
