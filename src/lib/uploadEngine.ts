@@ -70,6 +70,17 @@ class UploadEngine {
   private items = new Map<string, QueueItem>();
   private running = new Set<string>();
   private listeners = new Set<Listener>();
+  // Snapshot clone cache: the UI reads immutable copies, and React.memo on the
+  // rows relies on object identity. We hand out a FRESH clone for an item only
+  // when that item actually changed (tracked via updatedAt), and reuse the last
+  // clone otherwise — so unchanged rows keep a stable reference (memo holds)
+  // while a changed row gets a new reference (memo re-renders it).
+  private snapClones = new Map<string, { rev: number; clone: QueueItem }>();
+  // Monotonic revision stamped on every item mutation. Used purely to decide
+  // when a snapshot clone is stale. A counter (not Date.now()) guarantees two
+  // mutations in the same millisecond still get distinct revisions.
+  private itemRev = new Map<string, number>();
+  private revSeq = 0;
   private started = false;
   private disposed = false;
   private online = isOnline();
@@ -133,11 +144,38 @@ class UploadEngine {
   }
 
   snapshot(): EngineSnapshot {
+    const items = [...this.items.values()]
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((item) => this.cloneForSnapshot(item));
+    // Drop cache entries for items that no longer exist (removed/pruned).
+    if (this.snapClones.size > this.items.size) {
+      for (const id of this.snapClones.keys()) {
+        if (!this.items.has(id)) this.snapClones.delete(id);
+      }
+    }
     return {
-      items: [...this.items.values()].sort((a, b) => a.createdAt - b.createdAt),
+      items,
       online: this.online,
       activeCount: this.running.size,
     };
+  }
+
+  /**
+   * Return an immutable copy of an item for the UI. Items are mutated in place
+   * internally (and reused as the same object in the Map and IndexedDB), so
+   * without this React.memo'd rows would never see a status change — the item
+   * prop reference would be identical across renders and the memo would bail
+   * out, freezing the row on its first status (the "stuck on Preparing" bug).
+   * We re-clone only when updatedAt advanced, keeping references stable for
+   * untouched items so the memo optimization still holds for them.
+   */
+  private cloneForSnapshot(item: QueueItem): QueueItem {
+    const rev = this.itemRev.get(item.id) ?? 0;
+    const cached = this.snapClones.get(item.id);
+    if (cached && cached.rev === rev) return cached.clone;
+    const clone = { ...item };
+    this.snapClones.set(item.id, { rev, clone });
+    return clone;
   }
 
   private emit() {
@@ -171,6 +209,7 @@ class UploadEngine {
   private async persist(item: QueueItem) {
     if (this.disposed) return;
     item.updatedAt = Date.now();
+    this.itemRev.set(item.id, ++this.revSeq);
     this.items.set(item.id, item);
     await putItem(item);
     this.emit();
@@ -254,6 +293,8 @@ class UploadEngine {
         item.attempts = 0;
         item.error = null;
         item.status = 'queued';
+        item.updatedAt = Date.now();
+        this.itemRev.set(item.id, ++this.revSeq);
         await putItem(item);
       }
     }
@@ -377,6 +418,10 @@ class UploadEngine {
           total: item.size,
           onProgress: (loaded) => {
             item.progress = Math.min(0.98, loaded / item.size);
+            // Progress mutations bypass persist(), so stamp a new revision here
+            // too, otherwise the snapshot would serve a stale clone and the
+            // progress bar/percentage would never move.
+            this.itemRev.set(item.id, ++this.revSeq);
             this.emitProgress();
           },
         });

@@ -256,6 +256,24 @@ Gallery/MyPhotos (DOM grows unbounded on long scroll); explicit `width`/`height`
   could not help while the overlay was trapped. FIX: render `Lightbox` via
   `createPortal(…, document.body)` so it sits outside any transformed ancestor and `position:fixed`
   resolves against the real viewport. Committed in `8d1a190`.
+- **Upload row stuck on "Preparing" even though the photo reached Drive (real-time status never
+  updated):** "Preparing" = the engine's `optimizing` status (`QueueRow` `STATUS_META`). The engine
+  was NOT actually stuck — it ran through to `done` (gallery proved it) but the UI row froze on its
+  first paint. ROOT CAUSE: `UploadEngine` mutates each `QueueItem` **in place** (`Object.assign`,
+  `item.blob=`, `item.progress=`) and reuses the SAME object in the Map, IndexedDB, and every
+  `snapshot()` (`[...this.items.values()]` = new array, same item refs). `QueueRow` is wrapped in
+  `React.memo`, whose default shallow compare sees `prevProps.item === nextProps.item` (same ref) →
+  **bails out and skips the re-render**, so the row keeps its first status forever. The `queued`→
+  `optimizing` emits batch into one render at the start of `process()`, so the first (and only)
+  painted status is `optimizing` = "Preparing". The earlier perf-pass memo assumed "engine replaces
+  item identity only when it changes" — FALSE; it mutates in place. FIX (`src/lib/uploadEngine.ts`):
+  `snapshot()` now returns **fresh clones for changed items, stable refs for unchanged ones** so
+  `React.memo` works AND still saves re-renders on untouched rows. Added a monotonic revision counter
+  (`itemRev`/`revSeq`, a counter not `Date.now()` so same-ms mutations get distinct revs) stamped on
+  every mutation — in `persist()`, in the `uploadChunk` `onProgress` callback (which bypasses
+  `persist`), and in `retryAllFailed()` — plus a per-id clone cache (`snapClones` keyed by rev;
+  stale entries pruned in `snapshot()`). `cloneForSnapshot()` re-clones only when the rev advanced.
+  Verified: typecheck clean, 28/28 tests pass, build green. (local only — NOT committed.)
 
 ---
 
@@ -632,3 +650,21 @@ Keep appending brief entries so intent is retained across sessions.
     background + border to `var(--sage)` (= rgb(138,154,123)) and `.gallery-name`/`.gallery-date`
     color to `#fff` in `theme.css`. Kept `.gallery-row.mine` gold border (good contrast on sage).
     Verified typecheck + build green. (local only before this commit.)
+64. **"Commit and push the updates"** — Go-signal given. Staged `src/theme.css` +
+    `.kiro/steering/memory-bank.md`; committed `cc545b5` ("Gallery list: sage background with white
+    text", 2 files, +18/-5); pushed `9fc5cce..cc545b5` to `origin/main` via `github-other`
+    (bricxcarasco). Verified push output `9fc5cce..cc545b5 main -> main`. Cleaned up scratch files.
+    Vercel auto-redeploys. ← this entry.
+65. **"Investigate why uploads get stuck on 'Preparing' even though the photo actually uploads
+    (status not updating in real time)"** — Diagnosed + fixed. "Preparing" = engine `optimizing`
+    status; engine ran to `done` fine (gallery confirmed) but the `QueueRow` froze. ROOT CAUSE: the
+    `React.memo` on `QueueRow` bailed out because the engine mutates each `QueueItem` in place and
+    reuses the same object reference in the Map/IndexedDB/`snapshot()`, so the memo saw an identical
+    `item` prop and skipped every re-render after the first paint (which lands on `optimizing`).
+    FIX in `src/lib/uploadEngine.ts`: `snapshot()` now hands out fresh clones for changed items and
+    stable refs for unchanged ones — added a monotonic rev counter (`itemRev`/`revSeq`) bumped in
+    `persist()`, the `onProgress` progress callback, and `retryAllFailed()`, plus a per-id clone
+    cache (`snapClones`) that re-clones only when the rev advanced (stale entries pruned in
+    `snapshot()`). Keeps the perf memo intact for untouched rows. Verified: typecheck clean, 28/28
+    tests pass, build green. Cleaned up scratch files. (local only — NOT committed, awaiting
+    go-signal.) ← this entry.
