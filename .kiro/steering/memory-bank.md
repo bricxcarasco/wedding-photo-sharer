@@ -273,7 +273,8 @@ Gallery/MyPhotos (DOM grows unbounded on long scroll); explicit `width`/`height`
   every mutation — in `persist()`, in the `uploadChunk` `onProgress` callback (which bypasses
   `persist`), and in `retryAllFailed()` — plus a per-id clone cache (`snapClones` keyed by rev;
   stale entries pruned in `snapshot()`). `cloneForSnapshot()` re-clones only when the rev advanced.
-  Verified: typecheck clean, 28/28 tests pass, build green. (local only — NOT committed.)
+  Verified: typecheck clean, 28/28 tests pass, build green. Committed `d0415c4`, pushed to
+  `origin/main`.
 
 ---
 
@@ -668,3 +669,13 @@ Keep appending brief entries so intent is retained across sessions.
     `snapshot()`). Keeps the perf memo intact for untouched rows. Verified: typecheck clean, 28/28
     tests pass, build green. Cleaned up scratch files. (local only — NOT committed, awaiting
     go-signal.) ← this entry.
+66. **"Commit and push our updates"** — Go-signal given. Staged `src/lib/uploadEngine.ts` +
+    `.kiro/steering/memory-bank.md` (only two changed files, confirmed via `git status --short`),
+    committed `d0415c4` ("Fix upload row stuck on Preparing: hand React fresh item refs on change",
+    2 files, +82/-1), pushed to `origin/main` via `github-other` (bricxcarasco). Verified local ==
+    remote == `d0415c4` with `ls-remote`, working tree clean. Cleaned up scratch files. Vercel
+    auto-redeploys. ← this entry.
+67. **"Run this project locally"** — Started the Vite dev server on :5173 via a background
+    process (`wsl bash -lic "source ~/.nvm/nvm.sh && nvm use 24 && npm run dev"`, Node v24.3.0,
+    Vite 5.4.21). Reminded: frontend only, `/api` 404s so real uploads need the deployed site;
+    camera works on localhost. No code/config changes.
